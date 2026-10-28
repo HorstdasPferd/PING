@@ -5,7 +5,7 @@ It charges from your power grid like an accumulator and, once charged, teleports
 
 - **Mod GUID:** `ping.horstdaspferd`
 - **Version:** 0.9.10
-- **Dependencies:** BepInEx, CommonAPI, LDBTool, DSPModSave
+- **Dependencies:** BepInEx, CommonAPI, LDBTool, DSPModSave and any mod that disabled AbnormalyCheck as it will use a Sandbox-Fasttravel call. 
 
 > Status: work in progress. Report problems together with your `BepInEx/LogOutput.log`.
 
