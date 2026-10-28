@@ -51,7 +51,7 @@ Place the portal inside the range of your Power-Grid and it starts charging.
 1. Build a PING portal on the **origin** planet and one on the **destination** planet. Planets without a portal are not offered as destinations.
 2. Let the origin portal charge. The energy bar in the window shows the stored energy.
 3. Stand on the platform or within 2 m of its edge and **click the portal** to open the destination window.
-4. Pick a destination. You can either use Galactic Map View and select an Planet or use the filters or the search field if needed:
+4. Pick a destination. You can use new UI or the filters or the search field if needed:
    - portal filter: only planets that have a PING portal
    - "<= N ly": only targets within range
    - "This star": only planets of the current star
