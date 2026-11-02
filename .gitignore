@@ -1,0 +1,15 @@
+# Build output
+bin/
+obj/
+*.user
+.vs/
+# Unity
+unity/Library/
+unity/Temp/
+unity/Logs/
+unity/obj/
+unity/UserSettings/
+unity/Assets/StreamingAssets/
+# Game files (copyrighted, never upload)
+Assembly-CSharp.dll
+*.dll

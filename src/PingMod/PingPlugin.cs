@@ -21,8 +21,9 @@ namespace PingMod
     // How it works:
     //  * The portal is registered as a copy of the vanilla Accumulator, so the game itself charges it from the power grid.
     //  * The stored energy is the accumulator's curEnergy. A teleport simply removes energy from it.
-    //  * While the player stands near a portal, the Galactic Map's "fast travel" button is available.
-    //    Clicking it on a planet starts a PING teleport (cost, range, cooldown and partner portal are checked first).
+    //  * Clicking a portal opens the destination window; its Teleport button starts a PING teleport.
+    //    While the player stands near a portal, the Galactic Map's "fast travel" button starts one too.
+    //    Cost, range, cooldown and partner portal are checked first.
     //  * On arrival the player is placed next to a PING portal of the destination planet.
     [BepInPlugin(GUID, NAME, VERSION)]
     [BepInDependency(CommonAPIPlugin.GUID)]
@@ -30,10 +31,9 @@ namespace PingMod
     [CommonAPISubmoduleDependency(nameof(ProtoRegistry), nameof(CustomDescSystem), nameof(UtilSystem), nameof(LocalizationModule))]
     public class PingPlugin : BaseUnityPlugin, IModCanSave
     {
-        public const string MODID = "ping";
         public const string GUID = "ping.horstdaspferd";
         public const string NAME = "PING - Portal Icarus Neural Gateway";
-        public const string VERSION = "0.9.10";
+        public const string VERSION = "1.0.1";
 
         public const int PING_ITEM_ID = 3500;
         public const int PING_MODEL_ID = 699;
@@ -61,8 +61,6 @@ namespace PingMod
         public static ConfigEntry<float> WindowOpacity;
         public static ConfigEntry<bool> RemoveAllPortals;
 
-        // Recipe: 20 Quantum Chip (1305), 25 Graviton Lens (1209), 50 Space Warper (1210), 25 Particle Broadband (1402), 100 Accumulator (2206).
-        const string DEFAULT_INGREDIENTS = "1305x20,1209x25,1210x50,1402x25,2206x100";
         const int RECIPE_SECONDS = 40;
 
         // Null-safe config accessors (in case binding failed in Awake).
@@ -70,7 +68,6 @@ namespace PingMod
         const float PODIUM_RADIUS = 3f;
         const float GATE_MARGIN = 2f;
         public static float GateRange => PODIUM_RADIUS + GATE_MARGIN;
-        public static bool RequirePaired => true; // a portal is needed on the destination planet
         public static float WindowAlpha => WindowOpacity?.Value ?? 0.78f;
         public static long CooldownTicks => (CooldownSeconds?.Value ?? 10) * 60L;
         public static double MaxTravelDistanceLightYears => MaxTravelDistanceLY?.Value ?? 50f;
@@ -128,7 +125,7 @@ namespace PingMod
                 Guard("item", RegisterItem);
                 Guard("model", RegisterModel);
                 Guard("recipe", RegisterRecipe);
-                Guard("build bar", () => LDBTool.SetBuildBar(6, 1, PingItem.ID));
+                Guard("build bar", AssignBuildBar);
             }
         }
 
@@ -139,9 +136,9 @@ namespace PingMod
                 "PING神经网关",
                 "Portail PING");
             LocalizationModule.RegisterTranslation("ping_gateDesc",
-                "PING - Portal Icarus Neural Gateway. Charges from surplus power like an accumulator. While standing on the platform or within 2 m of it, open the Galactic Map, select a planet and use the fast travel button to jump. The destination planet must also have a PING portal, you arrive next to it. Cost: 192 MJ / Light-Year.",
-                "PING - Icarus神经传输网关。像蓄电器一样充电。站在平台上或距离平台2米内时打开星图，选择星球并点击快速旅行即可传送。目标星球也必须有网关，你会出现在它旁边。能耗：每光年192兆焦。",
-                "PING - Portail Icarus Neural Gateway. Se charge avec le surplus d'énergie comme un accumulateur. Sur la plateforme ou à moins de 2 m, ouvrez la carte galactique, sélectionnez une planète et utilisez le voyage rapide. La planète de destination doit aussi posséder un portail PING, vous arrivez à côté. Coût : 192 MJ / année-lumière.");
+                "PING - Portal Icarus Neural Gateway. Charges from surplus power like an accumulator. While standing on the platform or within 2 m of it, click the portal and pick a destination, or select a planet on the Galactic Map and use the fast travel button. The destination planet must also have a PING portal, you arrive next to it. Cost: 192 MJ / Light-Year.",
+                "PING - Icarus神经传输网关。像蓄电器一样充电。站在平台上或距离平台2米内时，点击网关并选择目的地，或在星图中选择星球并点击快速旅行即可传送。目标星球也必须有网关，你会出现在它旁边。能耗：每光年192兆焦。",
+                "PING - Portail Icarus Neural Gateway. Se charge avec le surplus d'énergie comme un accumulateur. Sur la plateforme ou à moins de 2 m, cliquez sur le portail et choisissez une destination, ou sélectionnez une planète sur la carte galactique et utilisez le voyage rapide. La planète de destination doit aussi posséder un portail PING, vous arrivez à côté. Coût : 192 MJ / année-lumière.");
             LocalizationModule.RegisterTranslation("ping_gateRecipe",
                 "PING Portal",
                 "PING神经网关",
@@ -197,7 +194,7 @@ namespace PingMod
                 prefabPath,
                 null,
                 descFields,
-                reference.BuildIndex,
+                FindFreeBuildIndex(),
                 reference.BuildMode,
                 upgrades);
 
@@ -274,24 +271,9 @@ namespace PingMod
         {
             if (PingItem == null) return;
 
-            // Ingredients come from the config ("itemIdxcount,..."). Verified ids: 1305 Quantum Chip,
-            // 1209 Graviton Lens, 1210 Space Warper, 1402 Particle Broadband, 2206 Accumulator.
-            List<int> parsedIds = new List<int>();
-            List<int> parsedCounts = new List<int>();
-            ParseIngredients(DEFAULT_INGREDIENTS, parsedIds, parsedCounts);
-            if (parsedIds.Count == 0)
-            {
-                Log.LogWarning("PING: the configured ingredients are empty or invalid, using the defaults.");
-                ParseIngredients(DEFAULT_INGREDIENTS, parsedIds, parsedCounts);
-            }
-            if (parsedIds.Count > 6)
-            {
-                Log.LogWarning("PING: more than 6 ingredients configured, only the first 6 are used.");
-                parsedIds.RemoveRange(6, parsedIds.Count - 6);
-                parsedCounts.RemoveRange(6, parsedCounts.Count - 6);
-            }
-            int[] wantedInputs = parsedIds.ToArray();
-            int[] wantedCounts = parsedCounts.ToArray();
+            // Quantum Chip, Graviton Lens, Space Warper, Particle Broadband, Accumulator.
+            int[] wantedInputs = { 1305, 1209, 1210, 1402, 2206 };
+            int[] wantedCounts = { 20, 25, 50, 25, 100 };
 
             // Items that do not exist would show as "?" in the recipe, so they are dropped (and logged).
             List<int> inputs = new List<int>();
@@ -320,22 +302,6 @@ namespace PingMod
             if (PingItem != null) PingRecipe.IconPath = PingItem.IconPath;
 
             Log.LogInfo($"PING recipe registered (id={PING_RECIPE_ID}, {inputs.Count} ingredients).");
-        }
-
-        static void ParseIngredients(string text, List<int> ids, List<int> counts)
-        {
-            foreach (string part in (text ?? "").Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                string[] kv = part.Trim().Split(new[] { 'x', 'X', ':', '*' }, StringSplitOptions.RemoveEmptyEntries);
-                int id, count;
-                if (kv.Length != 2 || !int.TryParse(kv[0].Trim(), out id) || !int.TryParse(kv[1].Trim(), out count) || id <= 0 || count <= 0)
-                {
-                    Log.LogWarning($"PING: could not read ingredient '{part.Trim()}' (expected itemIdxcount, e.g. 1305x20).");
-                    continue;
-                }
-                ids.Add(id);
-                counts.Add(count);
-            }
         }
 
         // The game only lists an item or recipe in its grids (assembler recipe picker, replicator) when
@@ -384,6 +350,37 @@ namespace PingMod
             Log.LogInfo($"PING grid cell: {chosen} (page {page}, row {chosen % 1000 / 100}, column {chosen % 100}).");
         }
 
+        // The build bar is addressed as tab * 100 + slot. The portal goes into the first free slot of tab 6
+        // (next to the Energy Exchanger and the Interstellar Logistics Station), so no other building is displaced.
+        const int BUILD_BAR_TAB = 6;
+        const int BUILD_BAR_SLOTS = 12;
+
+        // Returns tab * 100 + slot of the first free slot in the build bar tab, or 0 if there is none.
+        static int FindFreeBuildIndex()
+        {
+            HashSet<int> used = new HashSet<int>();
+            foreach (ItemProto item in LDB.items.dataArray)
+                if (item != null && item != PingItem && item.BuildIndex > 0) used.Add(item.BuildIndex);
+
+            for (int slot = 1; slot <= BUILD_BAR_SLOTS; slot++)
+            {
+                int index = BUILD_BAR_TAB * 100 + slot;
+                if (!used.Contains(index)) return index;
+            }
+            Log.LogWarning($"PING: no free build bar slot in tab {BUILD_BAR_TAB}. The portal may not be shown in the build bar.");
+            return 0;
+        }
+
+        // The item itself carries the build bar index (set in RegisterModel), so it appears in exactly one slot.
+        static void AssignBuildBar()
+        {
+            if (PingItem == null || PingItem.BuildIndex <= 0) return;
+            int tab = PingItem.BuildIndex / 100;
+            int slot = PingItem.BuildIndex % 100;
+            LDBTool.SetBuildBar(tab, slot, PingItem.ID);
+            Log.LogInfo($"PING build bar: tab {tab}, slot {slot}.");
+        }
+
         void InstallPatches()
         {
             Harmony harmony = new Harmony(GUID);
@@ -401,12 +398,8 @@ namespace PingMod
         {
             Guard("grid cell", AssignGridIndex);
             Guard("attach recipe to tech", AttachRecipeToTech);
-            Guard("build bar", () =>
-            {
-                if (PingItem != null) LDBTool.SetBuildBar(6, 1, PingItem.ID);
-            });
+            Guard("build bar", AssignBuildBar);
             Guard("diagnostics", LogDiagnostics);
-            Guard("reference size", LogReferenceSize);
             Guard("game materials and power", ApplyGameMaterialsAndPower);
         }
 
@@ -425,15 +418,11 @@ namespace PingMod
                 return;
             }
 
-            LogPower("vanilla accumulator", vanilla);
-            LogPower("PING portal (before)", ours);
-
             // Wiring: the vanilla accumulator is a "power node" (it connects to the grid by wire, like a pole).
             // Without that flag the portal would never join a power network.
             ours.isPowerNode = vanilla.isPowerNode;
             ours.powerConnectDistance = vanilla.powerConnectDistance;
             ours.powerCoverRadius = vanilla.powerCoverRadius;
-            LogPower("PING portal (after)", ours);
 
             if (PingModel == null || PingModel.PrefabPath == null || PingModel.PrefabPath.IndexOf(CUSTOM_KEYWORD, StringComparison.Ordinal) < 0)
                 return; // vanilla model in use, its own materials are fine
@@ -445,8 +434,6 @@ namespace PingMod
                 Log.LogWarning("PING: no materials available to copy.");
                 return;
             }
-
-            LogMaterial("vanilla accumulator material", vm[0][0]);
 
             Material[] source = om[0];
             Material[] result = new Material[source.Length];
@@ -496,52 +483,10 @@ namespace PingMod
                     // Do not let the vanilla accumulator's glow or relief show up on the portal.
                     if (sourceName == "_EmissionMap") to.SetTexture(name, Texture2D.blackTexture);
                     else if (sourceName == "_BumpMap") to.SetTexture(name, Texture2D.normalTexture);
-                    Log.LogInfo($"PING: material {index}: no '{sourceName}' in the bundle, '{name}' set to {(sourceName == "_MetallicGlossMap" ? "the vanilla texture" : "a neutral texture")}.");
                     continue;
                 }
                 to.SetTexture(name, tex);
-                Log.LogInfo($"PING: material {index}: '{name}' <- bundle texture '{tex.name}' ({sourceName}).");
             }
-        }
-
-        static void LogPower(string label, PrefabDesc d)
-        {
-            Log.LogInfo($"PING power [{label}]: isAccumulator={d.isAccumulator} isPowerNode={d.isPowerNode} isPowerConsumer={d.isPowerConsumer} " +
-                        $"powerPoint={d.powerPoint} connectDistance={d.powerConnectDistance} coverRadius={d.powerCoverRadius} " +
-                        $"input={d.inputEnergyPerTick} output={d.outputEnergyPerTick} max={d.maxAcuEnergy} hasBuildCollider={d.hasBuildCollider}");
-        }
-
-        static void LogMaterial(string label, Material m)
-        {
-            if (m == null || m.shader == null) return;
-            System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            Shader shader = m.shader;
-            int count = shader.GetPropertyCount();
-            for (int i = 0; i < count; i++)
-            {
-                string pn = shader.GetPropertyName(i);
-                UnityEngine.Rendering.ShaderPropertyType pt = shader.GetPropertyType(i);
-                sb.Append(pn).Append(':').Append(pt);
-                if (pt == UnityEngine.Rendering.ShaderPropertyType.Color) sb.Append('=').Append(ColorUtility.ToHtmlStringRGBA(m.GetColor(pn)));
-                else if (pt == UnityEngine.Rendering.ShaderPropertyType.Float || pt == UnityEngine.Rendering.ShaderPropertyType.Range) sb.Append('=').Append(m.GetFloat(pn));
-                sb.Append("  ");
-            }
-            Log.LogInfo($"PING material [{label}] shader='{shader.name}' properties: {sb}");
-        }
-
-        // Logs the size data of the vanilla accumulator, so a custom model can be scaled to match.
-        static void LogReferenceSize()
-        {
-            PrefabDesc d = LDB.items.Select(2206)?.prefabDesc;
-            if (d == null)
-            {
-                Log.LogWarning("PING: reference accumulator has no prefabDesc.");
-                return;
-            }
-            string lods = d.lodDistances == null ? "-" : string.Join(", ", d.lodDistances);
-            Log.LogInfo($"PING ref accumulator: buildCollider.ext={d.buildCollider.ext} buildCollider.pos={d.buildCollider.pos} " +
-                        $"selectCenter={d.selectCenter} selectSize={d.selectSize} cullingHeight={d.cullingHeight} " +
-                        $"roughHeight={d.roughHeight} lodCount={d.lodCount} lodDistances=[{lods}]");
         }
 
         static void AttachRecipeToTech()
@@ -591,9 +536,9 @@ namespace PingMod
         // Savegame (DSPModSave)
         // ------------------------------------------------------------------
 
-        // Version 3 layout per portal: planetId, entityId, x, y, z, cooldownUntilTick.
+        // Layout per portal: planetId, entityId, x, y, z, cooldownUntilTick.
         // The stored energy lives in the game's own accumulator data, not here.
-        const byte SAVE_VERSION = 3;
+        const byte SAVE_VERSION = 1;
 
         public void Export(BinaryWriter w)
         {
@@ -625,32 +570,11 @@ namespace PingMod
             for (int i = 0; i < count; i++)
             {
                 PortalData portal = new PortalData();
-                if (version >= 3)
-                {
-                    portal.planetId = r.ReadInt32();
-                    portal.entityId = r.ReadInt32();
-                    portal.localPos = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
-                    portal.posKnown = true;
-                    portal.cooldownUntilTick = r.ReadInt64();
-                }
-                else if (version == 2)
-                {
-                    // planetId, entityId, energy, target, cooldown: energy and target no longer exist.
-                    portal.planetId = r.ReadInt32();
-                    portal.entityId = r.ReadInt32();
-                    r.ReadDouble();
-                    r.ReadInt32();
-                    portal.cooldownUntilTick = r.ReadInt64();
-                }
-                else
-                {
-                    // Version 1: entityId, energy, target, cooldown, planetId.
-                    portal.entityId = r.ReadInt32();
-                    r.ReadDouble();
-                    r.ReadInt32();
-                    portal.cooldownUntilTick = r.ReadInt64();
-                    portal.planetId = r.ReadInt32();
-                }
+                portal.planetId = r.ReadInt32();
+                portal.entityId = r.ReadInt32();
+                portal.localPos = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
+                portal.posKnown = true;
+                portal.cooldownUntilTick = r.ReadInt64();
                 PingTicker.AllPortals[PingTicker.Key(portal.planetId, portal.entityId)] = portal;
             }
         }
@@ -697,26 +621,6 @@ namespace PingMod
                 if (field != null) return field;
             }
             return null;
-        }
-
-        // Diagnostics only: writes down which icon path and sprite the game has for an item or recipe.
-        internal static void LogIcon(string label, object proto, string path)
-        {
-            if (proto == null) return;
-            // "iconSprite" is a property in this game version (a field in older ones).
-            PropertyInfo property = proto.GetType().GetProperty("iconSprite", AnyInstance);
-            FieldInfo field = property == null ? FindField(proto.GetType(), "iconSprite") : null;
-            Sprite sprite = null;
-            try
-            {
-                if (property != null) sprite = property.GetValue(proto, null) as Sprite;
-                else if (field != null) sprite = field.GetValue(proto) as Sprite;
-            }
-            catch (Exception ex) { Log.LogWarning("PING icon: reading the sprite failed: " + ex.Message); }
-            string info = "-";
-            if (sprite != null && sprite.texture != null)
-                info = sprite.texture.width + "x" + sprite.texture.height + ", format " + sprite.texture.format + ", mips " + sprite.texture.mipmapCount + ", rect " + sprite.rect;
-            Log.LogInfo($"PING icon [{label}]: path='{path}', member found={(property != null || field != null)}, sprite={(sprite != null ? sprite.name : "null")}, texture={info}.");
         }
 
         static void TrySetField(object target, object value, params string[] names)
@@ -798,7 +702,6 @@ namespace PingMod
             AllPortals.Clear();
             LastSyncTick.Clear();
             decommissioned.Clear();
-            batchLogged = false;
             pendingPlanetId = 0;
             recipeChecked = false;
         }
@@ -873,16 +776,58 @@ namespace PingMod
         // Portal registry
         // ------------------------------------------------------------------
 
+        // True if the portal still exists. When the planet's factory is available the position is read from the live
+        // entity ('live' = true), otherwise the stored data is trusted.
+        static bool IsPortalAlive(PortalData portal, out Vector3 pos, out bool live)
+        {
+            pos = portal.localPos;
+            live = false;
+            PlanetData planet = GameMain.data?.galaxy?.PlanetById(portal.planetId);
+            PlanetFactory factory = planet?.factory;
+            if (factory == null || factory.entityPool == null) return true;
+
+            int id = portal.entityId;
+            if (id <= 0 || id >= factory.entityPool.Length) return false;
+            if (factory.entityPool[id].id != id || factory.entityPool[id].protoId != PingPlugin.PING_ITEM_ID) return false;
+
+            pos = factory.entityPool[id].pos;
+            live = true;
+            return true;
+        }
+
         // Picks the portal on a planet that the player arrives next to (lowest entity id, position known).
+        // Portals whose building no longer exists are dropped here, so a demolished portal can never be the destination.
         static PortalData FindPartner(int planetId)
         {
             PortalData best = null;
-            foreach (PortalData portal in AllPortals.Values)
+            List<long> gone = null;
+            foreach (KeyValuePair<long, PortalData> kv in AllPortals)
             {
+                PortalData portal = kv.Value;
                 if (portal.planetId != planetId) continue;
+
+                Vector3 pos;
+                bool live;
+                if (!IsPortalAlive(portal, out pos, out live))
+                {
+                    if (gone == null) gone = new List<long>();
+                    gone.Add(kv.Key);
+                    continue;
+                }
+                if (live)
+                {
+                    portal.localPos = pos;
+                    portal.posKnown = true;
+                }
+
                 if (best == null || (portal.posKnown && !best.posKnown) ||
                     (portal.posKnown == best.posKnown && portal.entityId < best.entityId))
                     best = portal;
+            }
+            if (gone != null)
+            {
+                foreach (long key in gone) AllPortals.Remove(key);
+                PingPlugin.Log.LogInfo($"PING: {gone.Count} demolished portal(s) removed from the list (planet {planetId}).");
             }
             return best;
         }
@@ -941,7 +886,6 @@ namespace PingMod
                     portal = new PortalData { planetId = planetId, entityId = i };
                     AllPortals[key] = portal;
                     PingPlugin.Log.LogInfo($"PING portal registered: planet {planetId}, entityId {i}.");
-                    LogRenderBatch();
                 }
                 portal.localPos = pool[i].pos;
                 portal.posKnown = true;
@@ -955,38 +899,6 @@ namespace PingMod
                 if (kv.Value.planetId == planetId && !found.Contains(kv.Key)) stale.Add(kv.Key);
             }
             foreach (long key in stale) AllPortals.Remove(key);
-        }
-
-        static bool batchLogged;
-
-        // Diagnostic: what the game's instancing renderer holds for the portal model (used for the hover outline).
-        static void LogRenderBatch()
-        {
-            if (batchLogged) return;
-            batchLogged = true;
-            try
-            {
-                PrefabDesc desc = PingPlugin.PingItem?.prefabDesc;
-                ObjectRenderer renderer = desc == null || GameMain.gpuiManager == null ? null : GameMain.gpuiManager.GetObjectRenderer(desc.modelIndex);
-                if (renderer == null || renderer.lodBatches == null || renderer.lodBatches.Length == 0 || renderer.lodBatches[0] == null)
-                {
-                    PingPlugin.Log.LogInfo("PING render batch: not available yet.");
-                    return;
-                }
-                PingPlugin.LogIcon("item", PingPlugin.PingItem, PingPlugin.PingItem.IconPath);
-                if (PingPlugin.PingRecipe != null) PingPlugin.LogIcon("recipe", PingPlugin.PingRecipe, PingPlugin.PingRecipe.IconPath);
-                if (desc.lodMeshes != null && desc.lodMeshes.Length > 0 && desc.lodMeshes[0] != null)
-                {
-                    Mesh lodMesh = desc.lodMeshes[0];
-                    PingPlugin.Log.LogInfo($"PING lod mesh: vertices={lodMesh.vertexCount}, bounds center={lodMesh.bounds.center}, size={lodMesh.bounds.size}, cullingHeight={desc.cullingHeight}.");
-                }
-                BatchRenderer batch = renderer.lodBatches[0];
-                int subMeshes = batch.mesh != null ? batch.mesh.subMeshCount : -1;
-                int materials = batch.materials != null ? batch.materials.Length : -1;
-                PingPlugin.Log.LogInfo($"PING render batch: lodBatches={renderer.lodBatches.Length}, subMeshes={subMeshes}, materials={materials}, " +
-                                       $"castShadow={desc.castShadow}, recvShadow={desc.recvShadow}, lodMeshSubMeshes={(desc.lodMeshes != null && desc.lodMeshes.Length > 0 && desc.lodMeshes[0] != null ? desc.lodMeshes[0].subMeshCount : -1)}.");
-            }
-            catch (Exception ex) { PingPlugin.SafeError("LogRenderBatch failed", ex); }
         }
 
         // Dismantles every PING portal of the factory like the player would, and gives the portal items back.
@@ -1065,7 +977,7 @@ namespace PingMod
             if (distLy > maxLy) return $"PING: destination is {distLy:F1} LY away (maximum {maxLy:F0} LY).";
 
             PortalData partner = FindPartner(target.id);
-            if (PingPlugin.RequirePaired && partner == null) return "PING: the destination planet has no PING portal.";
+            if (partner == null) return "PING: the destination planet has no PING portal.";
 
             if (GameMain.gameTick < origin.cooldownUntilTick) return "PING: portal is cooling down.";
 
@@ -1081,8 +993,8 @@ namespace PingMod
             origin.cooldownUntilTick = GameMain.gameTick + PingPlugin.CooldownTicks;
 
             pendingPlanetId = target.id;
-            pendingHasPos = partner != null && partner.posKnown;
-            pendingPos = partner != null ? partner.localPos : Vector3.zero;
+            pendingHasPos = partner.posKnown;
+            pendingPos = partner.localPos;
 
             try
             {

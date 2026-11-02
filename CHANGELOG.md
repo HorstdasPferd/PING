@@ -1,0 +1,15 @@
+## Changelog
+
+
+## 1.0.1
+
+### Fixed
+- The portal no longer replaces the Logistics Distributor in the build bar. It now sits in exactly one slot: the first free slot of build bar tab 6.
+- After demolishing a PING portal and building a new one, the teleport no longer takes you to the old position. The destination is now checked against the existing building, and demolished portals are dropped from the list.
+
+### Changed
+- The energy readout in the destination window shows three decimals.
+
+#### v0.9.10 (DSP-0.10.35.29151)  
+
+v0.9.10: Inital release of PING = Portal: Icarus Neural Gateway

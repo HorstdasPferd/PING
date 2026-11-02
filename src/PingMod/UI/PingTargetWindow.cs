@@ -384,7 +384,7 @@ namespace PingMod.UI
             PlanetData current = GameMain.galaxy != null ? GameMain.galaxy.PlanetById(portal.planetId) : null;
             originStarId = current != null && current.star != null ? current.star.id : 0;
 
-            filterPortal = PingPlugin.RequirePaired;
+            filterPortal = true;
             filterRange = true;
             filterStar = false;
             scroll = 0;
@@ -486,7 +486,7 @@ namespace PingMod.UI
         {
             double maxLy = PingPlugin.MaxTravelDistanceLightYears;
             if (entry.distLy > maxLy) return "Too far: " + entry.distLy.ToString("F1") + " ly (maximum " + maxLy.ToString("F0") + " ly).";
-            if (PingPlugin.RequirePaired && !entry.hasPortal) return "There is no PING portal on this planet.";
+            if (!entry.hasPortal) return "There is no PING portal on this planet.";
             return null;
         }
 
@@ -604,7 +604,7 @@ namespace PingMod.UI
             float fraction = max > 0 ? Mathf.Clamp01((float)((double)stored / max)) : 0f;
             energyFill.sizeDelta = new Vector2(ListWidth * fraction, 20f);
 
-            string text = (stored / 1e9).ToString("F2") + " / " + (max / 1e9).ToString("F1") + " GJ  (" + (fraction * 100f).ToString("F0") + "%)";
+            string text = (stored / 1e9).ToString("F3") + " / " + (max / 1e9).ToString("F1") + " GJ  (" + (fraction * 100f).ToString("F0") + "%)";
             double cooldown = PingTicker.CooldownSecondsLeft(origin);
             if (cooldown > 0) text += "   cooldown " + cooldown.ToString("F0") + " s";
             energyText.text = text;
