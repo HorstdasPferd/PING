@@ -61,6 +61,8 @@ Place the portal inside the range of a Tesla Tower or Wireless Power Tower and i
    - "This star": only planets of the current star
 5. Click **Teleport**. A click on a row only selects the target. If the target cannot be used, the status line says why (not enough energy, too far, cooldown, no portal there).
 
+**Alternative:** While you stand on the platform (or within 2 m of its edge), you can also open the Galactic Map, select a planet and click **Fast travel**. The same checks apply (energy, distance, cooldown, portal on the destination planet).
+
 A trip costs **192 MJ per light-year**. A full 50 ly jump needs 9.6 GJ.
 
 ## Configuration

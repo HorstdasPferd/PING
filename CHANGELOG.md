@@ -1,5 +1,10 @@
 ## Changelog
 
+## 1.0.3
+
+### Changed
+- README now describes the second way to travel: the Fast travel button on the Galactic Map next to a PING portal.
+
 ## 1.0.2
 
 ### Fixed
