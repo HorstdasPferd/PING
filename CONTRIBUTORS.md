@@ -26,7 +26,3 @@ These are installed separately and remain the property of their authors.
 | CommonAPI | CommonAPI team |
 | DSPModSave | CommonAPI team |
 | Dyson Sphere Program (Unity, Assembly-CSharp) | Youthcat Studio |
-
-## Not third-party
-
-The earlier prototype used a Sketchfab model. It has been fully replaced and no third-party model or texture is part of this mod.
