@@ -33,7 +33,7 @@ namespace PingMod
     {
         public const string GUID = "ping.horstdaspferd";
         public const string NAME = "PING - Portal Icarus Neural Gateway";
-        public const string VERSION = "1.0.1";
+        public const string VERSION = "1.0.2";
 
         public const int PING_ITEM_ID = 3500;
         public const int PING_MODEL_ID = 699;
@@ -776,7 +776,7 @@ namespace PingMod
         // Portal registry
         // ------------------------------------------------------------------
 
-        // True if the portal still exists. When the planet's factory is available the position is read from the live
+        // True if the portal still exists. When the planet's factory is loaded the position is read from the live
         // entity ('live' = true), otherwise the stored data is trusted.
         static bool IsPortalAlive(PortalData portal, out Vector3 pos, out bool live)
         {
@@ -784,7 +784,8 @@ namespace PingMod
             live = false;
             PlanetData planet = GameMain.data?.galaxy?.PlanetById(portal.planetId);
             PlanetFactory factory = planet?.factory;
-            if (factory == null || factory.entityPool == null) return true;
+            // A planet whose factory is not loaded (far away) has no usable entity data: trust the stored data then.
+            if (planet == null || !planet.factoryLoaded || factory == null || factory.entityPool == null) return true;
 
             int id = portal.entityId;
             if (id <= 0 || id >= factory.entityPool.Length) return false;

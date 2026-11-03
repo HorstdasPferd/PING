@@ -6,7 +6,7 @@ Two portals on two different planets form a gateway. Walk within range (30 m),
 It works in normal games; no sandbox tools are needed.
 
 - **Mod GUID:** `org.dspmod.plugin.ping`
-- **Version:** 1.0.1
+- **Version:** 1.0.2
 - **Dependencies:** BepInEx, CommonAPI, LDBTool, DSPModSave, EnableAchievementsFix
 
 > Status: work in progress. Report problems together with your `BepInEx/LogOutput.log`.

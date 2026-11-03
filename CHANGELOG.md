@@ -1,5 +1,9 @@
 ## Changelog
 
+## 1.0.2
+
+### Fixed
+- Portals on distant planets were wrongly treated as demolished and dropped from the destination list. Portals are now only checked against the planets buildings while that planet is loaded.
 
 ## 1.0.1
 
