@@ -33,7 +33,7 @@ namespace PingMod
     {
         public const string GUID = "ping.horstdaspferd";
         public const string NAME = "PING - Portal Icarus Neural Gateway";
-        public const string VERSION = "1.0.2";
+        public const string VERSION = "1.0.3";
 
         public const int PING_ITEM_ID = 3500;
         public const int PING_MODEL_ID = 699;

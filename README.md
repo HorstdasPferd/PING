@@ -4,7 +4,7 @@ A **Dyson Sphere Program** mod that adds a late-game building: the **PING portal
 It charges from your power grid like an accumulator and, once charged, teleports your mecha to another PING portal on a different planet or star (up to 50 light-years away). It works in normal games; no sandbox tools are needed.
 
 - **Mod GUID:** `ping.horstdaspferd`
-- **Version:** 1.0.2
+- **Version:** 1.0.3
 - **Dependencies:** BepInEx, CommonAPI, LDBTool, DSPModSave, EnableAchievementsFix
 
 > Status: work in progress. Report problems together with your `BepInEx/LogOutput.log`.
